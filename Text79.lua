@@ -1,3 +1,13 @@
+--------------------------------------------------
+-- TOGGLE
+--------------------------------------------------
+if getgenv().AUTO_SHERIFF then
+	getgenv().AUTO_SHERIFF = false
+	return
+end
+
+getgenv().AUTO_SHERIFF = true
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
@@ -34,6 +44,8 @@ end
 -- disparo
 --------------------------------------------------
 local function shoot()
+
+	if not getgenv().AUTO_SHERIFF then return end
 
 	local character = LocalPlayer.Character
 	if not character then return end
@@ -75,6 +87,9 @@ end
 --------------------------------------------------
 -- loop
 --------------------------------------------------
-while task.wait(0.2) do
-	shoot()
-end
+task.spawn(function()
+	while getgenv().AUTO_SHERIFF do
+		task.wait(0.2)
+		shoot()
+	end
+end)
