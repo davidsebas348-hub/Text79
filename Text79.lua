@@ -1,118 +1,80 @@
---// ESP BOX TOGGLE - INVISIBLE / VISIBLE SI TIENE TOOL
---// RAW / LOCAL
-
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-
 local LocalPlayer = Players.LocalPlayer
-local espBoxes = _G.ESP_BOXES or {}
-_G.ESP_BOXES = espBoxes
 
--- ================= TOGGLE =================
+--------------------------------------------------
+-- buscar target criminal
+--------------------------------------------------
+local function getTarget()
 
-if _G.ESPBoxActivo == nil then
-	_G.ESPBoxActivo = false
-end
+	for _, player in pairs(Players:GetPlayers()) do
+		
+		if player.Team and player.Team.Name == "Criminals" then
+			
+			local model = workspace:FindFirstChild(player.Name)
 
-_G.ESPBoxActivo = not _G.ESPBoxActivo
+			if model and model:IsA("Model") then
 
--- ================= UTILIDADES =================
+				local head = model:FindFirstChild("Head")
+				local humanoid = model:FindFirstChildOfClass("Humanoid")
+				local audio = model:FindFirstChildWhichIsA("AudioEmitter", true)
 
-local function getMainPart(character)
-	return character:FindFirstChild("HumanoidRootPart")
-		or character:FindFirstChild("UpperTorso")
-		or character:FindFirstChild("Torso")
-		or character:FindFirstChildWhichIsA("BasePart")
-end
-
-local function hasAnyTool(player)
-	if player.Character then
-		for _, item in pairs(player.Character:GetChildren()) do
-			if item:IsA("Tool") then
-				return true
-			end
-		end
-	end
-	if player:FindFirstChild("Backpack") then
-		for _, item in pairs(player.Backpack:GetChildren()) do
-			if item:IsA("Tool") then
-				return true
-			end
-		end
-	end
-	return false
-end
-
--- ================= BOX =================
-
-local function createBox(player)
-	if player == LocalPlayer then return end
-	if espBoxes[player] then return end
-	if not player.Character then return end
-
-	local mainPart = getMainPart(player.Character)
-	if not mainPart then return end
-
-	local box = Instance.new("BoxHandleAdornment")
-	box.Name = "ESPBox"
-	box.Adornee = mainPart
-	box.AlwaysOnTop = true
-	box.ZIndex = 10
-	box.Size = Vector3.new(4, 6, 1)
-	box.Color3 = Color3.fromRGB(0, 150, 255)
-	box.Transparency = 1
-	box.Parent = workspace
-
-	espBoxes[player] = box
-end
-
--- ================= JUGADORES =================
-
-local function setupPlayer(player)
-	if player == LocalPlayer then return end
-
-	player.CharacterAdded:Connect(function()
-		task.wait(1)
-		createBox(player)
-	end)
-
-	if player.Character then
-		createBox(player)
-	end
-end
-
-for _, p in pairs(Players:GetPlayers()) do
-	setupPlayer(p)
-end
-
-Players.PlayerAdded:Connect(setupPlayer)
-Players.PlayerRemoving:Connect(function(player)
-	if espBoxes[player] then
-		espBoxes[player]:Destroy()
-		espBoxes[player] = nil
-	end
-end)
-
--- ================= LOOP =================
-
-if not _G.ESPBoxLoop then
-	_G.ESPBoxLoop = RunService.Stepped:Connect(function()
-		for player, box in pairs(espBoxes) do
-			if box and box.Parent then
-				if _G.ESPBoxActivo and hasAnyTool(player) then
-					box.Transparency = 0.4 -- VISIBLE
-				else
-					box.Transparency = 1 -- INVISIBLE
+				if head and humanoid and humanoid.Health > 0 and audio then
+					return model, head
 				end
+
 			end
+
 		end
-	end)
+
+	end
+
 end
 
--- ================= ESTADO =================
+--------------------------------------------------
+-- disparo
+--------------------------------------------------
+local function shoot()
 
-if _G.ESPBoxActivo then
-	print("ESP BOX ACTIVADO ✅")
-else
-	print("ESP BOX DESACTIVADO ❌ (invisible)")
+	local character = LocalPlayer.Character
+	if not character then return end
+
+	-- Solo si eres sheriff
+	if not LocalPlayer.Team or LocalPlayer.Team.Name ~= "Sheriffs" then
+		return
+	end
+
+	-- Debe tener la Gun equipada
+	local gun = character:FindFirstChild("GunSource")
+	if not gun then return end
+
+	local gunSource = character:FindFirstChild("GunSource")
+	if not gunSource then return end
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	local target, head = getTarget()
+	if not target then return end
+
+	local startPos = hrp.Position
+	local direction = (head.Position - startPos).Unit
+
+	local hitPart = target:FindFirstChildWhichIsA("BasePart")
+
+	local args = {
+		[1] = startPos,
+		[2] = direction,
+		[3] = hitPart,
+		[4] = head.Position
+	}
+
+	gunSource.Events.Fire:FireServer(unpack(args))
+
+end
+
+--------------------------------------------------
+-- loop
+--------------------------------------------------
+while task.wait(0.2) do
+	shoot()
 end
